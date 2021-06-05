@@ -4,20 +4,35 @@
     var iframe_whitelist = '{{ iframe_whitelist }}'.split(',')
     var md_changed = false; //初始化一个变量，用于判断编辑器是否修改
     //初始化editormd
-    var editor = editormd("editor-md", {
-        width       :   "100%",
-        height      :   "800px",
-        placeholder :   "道友，开始吧……",
-        toolbarIcons : function() {
-            return [
+    if(screen_width.matches){
+        var editormd_watch = false;
+        var editormd_height = window.innerHeight / 2 + 'px';
+        var editormd_toobar = [
+                    "h2","h3", "bold", "del", "italic", "quote","kaiSpan",  
+                    "list-ul", "list-ol", "hr", "link", 
+                    "mindmap","echart","imgUpload", "attachment" ,"multimedia","code", "code-block", "htmltable", 
+                    "emoji", "pagebreak", 
+                    "watch", "preview", 
+            ];
+    }else{
+        var editormd_watch = true;
+        var editormd_height = '800px'
+        var editormd_toobar = [
                 "undo", "redo", "|",
-                "h1", "bold", "del", "italic", "quote","kaiSpan",  
+                "h2","h3","h4","h5", "bold", "del", "italic", "quote","kaiSpan","mark",  
                 "list-ul", "list-ol", "hr", "link", "reference-link", 
                 "mindmap","echart","imgUpload", "attachment" ,"multimedia","code", "code-block", "htmltable", 
                 "emoji", "html-entities", "pagebreak", 
                 "watch", "preview", 
                 "help"
             ]
+    }
+    var editor = editormd("editor-md", {
+        width       :   "100%",
+        height      :   editormd_height,
+        placeholder :   "道友，开始吧……",
+        toolbarIcons : function() {
+            return editormd_toobar
         },
         //自定义工具栏添加楷体按钮
         toolbarIconTexts : {
@@ -189,6 +204,7 @@
             }
         },
         //配置项
+        watch       :editormd_watch,
         pageBreak : true, //分页符
         path        :   "/static/editor.md/lib/",
         saveHTMLToTextarea : true,
@@ -203,7 +219,7 @@
         sequenceDiagram : true, //开启序列图
         imageUpload    : true, //开启图片上传
         codeFold       :true, //代码折叠
-        htmlDecode     : "link,style,base,script,iframe", //过滤部分HTML标签
+        htmlDecode     : "link,style,base,script|on*", //过滤部分HTML标签
         imageFormats   : ["jpg", "jpeg", "gif", "png", "bmp", "webp"],
         imageUploadURL : "{% url 'upload_doc_img' %}",
         onchange:function(){
@@ -268,118 +284,4 @@
             return null;
         }
     };
-    //监听图片Tab选项卡切换
-    element.on('tab(img-tab)', function(data){
-      //console.log(this); //当前Tab标题所在的原始DOM元素
-      //console.log(data.index); //得到当前Tab的所在下标
-      //console.log(data.elem); //得到当前的Tab大容器
-      if(data.index == 1){
-        layer.load(1);
-        console.log('选择图片')
-        $("#select-img-group").empty(); //删除已有分组按钮
-        //请求新的分组数据
-        $.post("{% url 'manage_img_group' %}",{'types':3},function(r){
-            if(r.status){
-                group_btn_str = ''
-                for(var i in r.data){
-                    group_btn_str += '<button class="layui-btn layui-btn-normal layui-btn-sm" onclick="switchImgGroup(' + r.data[i].group_id +')">' + r.data[i].group_name + '(' + r.data[i].group_cnt + ')</button>'
-                };
-                $("#select-img-group").append(group_btn_str)
-            }
-        });
-        //请求全部图片数据
-        $.post("{% url 'manage_image' %}",{'types':2,'group_id':0},function(r){
-            if(r.status){
-                //调用分页显示
-                laypage.render({
-                    elem: 'select-img-page',//分页的div
-                    count: r.data.length, //数据总数
-                    limit:15, //单页数
-                    jump: function(obj){
-                        //渲染HTML
-                        document.getElementById('select-img').innerHTML = function(){
-                            var arr = []
-                            var thisData = r.data.concat().splice(obj.curr*obj.limit - obj.limit, obj.limit);
-                            layui.each(thisData, function(index, item){
-                                arr.push('<li class="select-img-list"><img class="select-img-list-i" onclick="insertImg(this);" src="' + item.path + '" title="' + item.name + '"data-url="' + item.path +'" /></li>');
-                            });
-                        return arr.join('');
-                        }();
-                    }
-                });
-                layer.closeAll("loading");
-            }else{
-                layer.closeAll("loading");
-                layer.msg("获取图片失败")
-            }
-        })
-      }
-    });
-    // 插入选择的图片到编辑器
-    insertImg = function(e){
-        // console.log(e);
-        editor.insertValue("\n![](" + e.getAttribute('data-url') + ")");
-        editor.focus()
-    };
-    // 按钮点击插入输入框图片链接
-    insertImgUrl = function(){
-        editor.insertValue("\n![](" + $("#img_url_input").val() + ")");
-        $("#img_url_input").val("")
-        layer.closeAll();
-        editor.focus()
-    };
-    // 切换图片分组
-    switchImgGroup = function(e){
-        layer.load(1);
-        $.post("{% url 'manage_image' %}", {
-            'types': 2,
-            'group_id': e
-        },
-        function(r) {
-            if (r.status) {
-                //调用分页显示
-                laypage.render({
-                    elem: 'select-img-page',//分页的div
-                    count: r.data.length,//数据总数
-                    limit: 15,//单页数
-                    jump: function(obj) {
-                        //渲染HTML
-                        document.getElementById('select-img').innerHTML = function() {
-                            var arr = []
-                            var thisData = r.data.concat().splice(obj.curr * obj.limit - obj.limit, obj.limit);
-                            layui.each(thisData,
-                            function(index, item) {
-                                arr.push('<li class="select-img-list"><img class="select-img-list-i" onclick="insertImg(this);" src="' + item.path + '" title="' + item.name + '" /></li>');
-                            });
-                            return arr.join('');
-                        } ();
-                    }
-                });
-                layer.closeAll("loading"); //关闭加载提示
-            } else {
-                layer.closeAll("loading");
-                layer.msg("获取分组图片失败")
-            }
-        })
-    };
-    // 插入选择的附件到编辑器
-    insertAttach = function(e){
-        editor.insertValue("\n[【附件】"+ $(e).data('name') + "](/media/" + $(e).data('path') + ")");
-        layer.closeAll();
-    }
-    // 插入音视频到编辑器
-    insertMultimedia = function(e){
-        if(e === 'audio'){
-            editor.insertValue("\n![=audio](" + $("#audio_input").val() + ")");
-        }else if(e === 'video'){
-            editor.insertValue("\n![=video](" + $("#video_input").val() + ")");
-        }else if(e === 'video_iframe'){
-            editor.insertValue("\n![=video_iframe](" + $("#video_iframe_input").val() + ")");
-        }
-        $("#audio_input").val('')
-        $("#video_input").val('')
-        $("#video_iframe_input").val('')
-        layer.closeAll();
-        editor.focus()
-    }
 </script>

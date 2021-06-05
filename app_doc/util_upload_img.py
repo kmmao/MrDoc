@@ -1,10 +1,11 @@
 # coding:utf-8
-from django.http import HttpResponse
+from django.http import HttpResponse,JsonResponse
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required # 登录需求装饰器
+from django.utils.translation import gettext_lazy as _
 import datetime,time,json,base64,os,uuid
-from app_doc.models import Image,ImageGroup
+from app_doc.models import Image,ImageGroup,Attachment
 from app_admin.models import SysSetting
 import requests
 import random
@@ -44,6 +45,7 @@ def upload_ice_img(request):
         res_dic = {0:result,"length":1,'other_msg':iceEditor_img}         #一个文件，直接把文件数量固定了
     return HttpResponse(json.dumps(res_dic), content_type="application/json")
 
+
 def ice_save_file(file_obj,user):   
     # 默认保留支持ice单文件上传功能，可以iceEditor中开启
     file_suffix = str(file_obj).split(".")[-1] # 提取图片格式
@@ -52,7 +54,7 @@ def ice_save_file(file_obj,user):
     # 判断附件格式
     is_images = ["jpg", "jpeg", "gif", "png", "bmp", "webp"]
     if file_suffix.lower() not in allow_suffix:         
-        return {"error": "文件格式不允许"}
+        return {"error": _("文件格式不允许")}
     if file_suffix.lower() == 'blob':
         # 粘贴上传直接默认为png就行
         file_suffix = 'png' 
@@ -66,7 +68,7 @@ def ice_save_file(file_obj,user):
     path_file = relative_path + file_name
     path_file = settings.MEDIA_ROOT + path_file
     #file_Url 是文件的url下发路径
-    file_url = settings.MEDIA_URL + relative_path + file_name      
+    file_url = (settings.MEDIA_URL + relative_path + file_name).replace("//","/")
     
     with open(path_file, 'wb') as f:
         for chunk in file_obj.chunks():
@@ -76,11 +78,11 @@ def ice_save_file(file_obj,user):
                 user=user,
                 file_path=file_url,
                 file_name=file_name,
-                remark="iceEditor上传"              
+                remark=_("iceEditor上传")
             )
         
         else :
-        #文件上传，暂时不屏蔽，如果需要正常使用此功能，是需要在iceeditor中修改的，mrdoc使用的是自定义脚本上传
+            #文件上传，暂时不屏蔽，如果需要正常使用此功能，是需要在iceeditor中修改的，mrdoc使用的是自定义脚本上传
             Attachment.objects.create(
                 user=user,
                 file_path=file_url,
@@ -88,7 +90,9 @@ def ice_save_file(file_obj,user):
                 file_size=str(round(len(chunk)/1024,2))+"KB"
             )
         return  {"error":0, "name": str(file_obj),'url':file_url}
-    return {"error": "文件存储异常"}
+
+    return {"error": _("文件存储异常")}
+
 
 # ice_url图片上传
 def ice_url_img_upload(url,user):
@@ -101,7 +105,7 @@ def ice_url_img_upload(url,user):
     path_file = os.path.join(relative_path, file_name)
     path_file = settings.MEDIA_ROOT + path_file
     # print('文件路径：', path_file)
-    file_url = settings.MEDIA_URL + relative_path + file_name
+    file_url = (settings.MEDIA_URL + relative_path + file_name).replace("//","/")
     # print("文件URL：", file_url)
     header = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36"
@@ -115,11 +119,10 @@ def ice_url_img_upload(url,user):
             user=user,
             file_path=file_url,
             file_name=file_name,
-            remark='iceurl粘贴上传',
+            remark=_('iceurl粘贴上传'),
         )
     resp_data = {"error":0, "name": file_name,'url':file_url}        
     return resp_data
-
 
 
 @login_required()
@@ -163,8 +166,8 @@ def upload_img(request):
         else:
             result = url_img_upload(url_img,dir_name,request.user)
     else:
-        result = {"success": 0, "message": "上传出错"}
-    return HttpResponse(json.dumps(result), content_type="application/json")
+        result = {"success": 0, "message": _("上传出错")}
+    return JsonResponse(result)
 
 
 # 目录创建
@@ -185,7 +188,7 @@ def img_upload(files, dir_name, user, group_id=None):
     file_suffix = files.name.split(".")[-1] # 提取图片格式
     # 判断图片格式
     if file_suffix.lower() not in allow_suffix:
-        return {"success": 0, "message": "图片格式不正确"}
+        return {"success": 0, "message": _("图片格式不正确")}
 
     # 判断图片的大小
     try:
@@ -195,14 +198,14 @@ def img_upload(files, dir_name, user, group_id=None):
         # print(repr(e))
         allow_img_size = 10485760
     if files.size > allow_img_size:
-        return {"success": 0, "message": "图片大小超出{}MB".format(allow_img_size / 1048576)}
+        return {"success": 0, "message": _("图片大小超出{}MB".format(allow_img_size / 1048576))}
 
     relative_path = upload_generation_dir(dir_name)
     file_name = files.name.replace(file_suffix,'').replace('.','') + '_' +str(int(time.time())) + '.' + file_suffix
     path_file=os.path.join(relative_path, file_name)
     path_file = settings.MEDIA_ROOT + path_file
     # print('文件路径：',path_file)
-    file_url = settings.MEDIA_URL + relative_path + file_name
+    file_url = (settings.MEDIA_URL + relative_path + file_name).replace("//",'/')
     # print("文件URL：",file_url)
     with open(path_file, 'wb') as f:
         for chunk in files.chunks():
@@ -211,10 +214,10 @@ def img_upload(files, dir_name, user, group_id=None):
         user=user,
         file_path=file_url,
         file_name=file_name,
-        remark='本地上传',
+        remark=_('本地上传'),
         group = group_id,
     )
-    return {"success": 1, "url": file_url,'message':'上传图片成功'}
+    return {"success": 1, "url": file_url,'message':_('上传图片成功')}
 
 
 # base64编码图片上传
@@ -226,7 +229,7 @@ def base_img_upload(files,dir_name, user):
     path_file = os.path.join(relative_path, file_name)
     path_file = settings.MEDIA_ROOT + path_file
     # print('文件路径：', path_file)
-    file_url = settings.MEDIA_URL + relative_path + file_name
+    file_url = (settings.MEDIA_URL + relative_path + file_name).replace("//","/")
     # print("文件URL：", file_url)
     with open(path_file, 'wb') as f:
         f.write(files_base)  # 保存文件
@@ -234,9 +237,9 @@ def base_img_upload(files,dir_name, user):
         user = user,
         file_path = file_url,
         file_name=file_name,
-        remark = '粘贴上传',
+        remark = _('粘贴上传'),
     )
-    return {"success": 1, "url": file_url, 'message': '上传图片成功'}
+    return {"success": 1, "url": file_url, 'message': _('上传图片成功')}
 
 
 # url图片上传
@@ -247,7 +250,7 @@ def url_img_upload(url,dir_name,user):
     path_file = os.path.join(relative_path, file_name)
     path_file = settings.MEDIA_ROOT + path_file
     # print('文件路径：', path_file)
-    file_url = settings.MEDIA_URL + relative_path + file_name
+    file_url = (settings.MEDIA_URL + relative_path + file_name).replace("//","/")
     # print("文件URL：", file_url)
     header = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36"
@@ -261,7 +264,7 @@ def url_img_upload(url,dir_name,user):
             user=user,
             file_path=file_url,
             file_name=file_name,
-            remark='粘贴上传',
+            remark=_('粘贴上传'),
         )
     resp_data = {
          'msg': '',

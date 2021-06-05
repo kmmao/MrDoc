@@ -53,15 +53,12 @@
                     <span class="layui-hide-xs">{% if request.user.first_name != '' %}{{request.user.first_name}}{% else %}{{request.user.username}}{% endif %}</span>
                 </a>
                 <dl class="layui-nav-child">
-                <!-- <dd><a href="">基本资料</a></dd> -->
-                    {% if request.user.is_superuser %}
                     <dd>
                         <a href="{% url 'pro_list' %}">
                             <i class="layui-icon layui-icon-console layui-hide-md"></i>
                             <span class="layui-hide-xs">{% trans "返回首页" %}</span>
                         </a>
                     </dd>
-                    {% endif %}
                     <dd class="layui-hide-md">
                         <a href="{% url 'create_doc' %}">
                             <i class="layui-icon layui-icon-add-1 layui-hide-md"></i>
@@ -87,7 +84,12 @@
                 <i class="layui-icon layui-icon-username"></i> {% trans "游客" %}
                 </a>
                 <dl class="layui-nav-child">
-                <!-- <dd><a href="">基本资料</a></dd> -->
+                    <dd>
+                        <a href="{% url 'pro_list' %}">
+                            <i class="layui-icon layui-icon-console layui-hide-md"></i>
+                            <span class="layui-hide-xs">{% trans "首页" %}</span>
+                        </a>
+                    </dd>
                     {% if close_register == 'on' %}
                     <dd><a href="{% url 'login' %}">{% trans "登录" %}</a></dd>
                     {% else %}
@@ -185,7 +187,7 @@
                 <div style="margin-bottom: 18px;">
                     <!-- 标题 -->
                     <h3>
-                        <a href="{{ result.object.get_absolute_url }}" target="_blank" class="search_result_title">{% highlight result.object.name with query %}</a>
+                        <a href="{{ result.object.get_absolute_url }}?highlight={{query}}" target="_blank" class="search_result_title">{% highlight result.object.name with query %}</a>
                     </h3>
                     <!-- 简介 -->
                     {% highlight result.object.pre_content with query %}
@@ -267,29 +269,6 @@
             $("#sel-sort").val(url.search.sort);
             layui.form.render('select');
         });
-
-        // 搜索词高亮
-        function keyLight(id, key, bgColor){
-            var oDiv = document.getElementById(id),
-            sText = oDiv.innerHTML,
-            bgColor = bgColor || "#c00",    
-            sKey = "<span name='addSpan' style='color: "+bgColor+";'>"+key+"</span>",
-            num = -1,
-            rStr = new RegExp(key, "ig"),
-            rHtml = new RegExp("\<.*?\>","ig"), //匹配html元素
-            aHtml = sText.match(rHtml); //存放html元素的数组
-            sText = sText.replace(rHtml, '{~}');  //替换html标签
-            // sText = sText.replace(rStr,sKey); //替换key
-            sText = sText.replace(rStr,function(text){
-                return "<span name='addSpan' style='color: "+bgColor+";'>"+text+"</span>"
-            }); //替换key
-            sText = sText.replace(/{~}/g,function(){  //恢复html标签
-                    num++;
-                    return aHtml[num];
-            });
-            oDiv.innerHTML = sText;
-        };
-        // keyLight('search_result',"{{query}}")
 
         // 侦听Select下拉框的选择事件
         form.on('select()', function(data){
